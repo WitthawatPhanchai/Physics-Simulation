@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple Harmonic Pendulum Simulation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f0f0f0;
+    }
+    .simulation-container {
+      width: 500px;
+      height: 400px;
+      background-color: white;
+      position: relative;
+      border: 1px solid #ccc;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      width: 500px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .physics-values {
+      margin-top: 20px;
+      width: 500px;
+      background-color: white;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Simple Harmonic Pendulum Simulation</h1>
+  
+  <div class="simulation-container" id="simulationContainer">
+    <!-- Pendulum will be drawn with JavaScript -->
+  </div>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label for="lengthSlider">Length (m):</label>
+      <input type="range" id="lengthSlider" min="0.1" max="2" step="0.1" value="1">
+      <span id="lengthValue">1.0</span>
+    </div>
+    
+    <div class="control-group">
+      <label for="gravitySlider">Gravity (m/s²):</label>
+      <input type="range" id="gravitySlider" min="1" max="20" step="0.1" value="9.8">
+      <span id="gravityValue">9.8</span>
+    </div>
+    
+    <div class="control-group">
+      <label for="dampeningSlider">Dampening:</label>
+      <input type="range" id="dampeningSlider" min="0" max="0.1" step="0.001" value="0.005">
+      <span id="dampeningValue">0.005</span>
+    </div>
+    
+    <div class="control-group">
+      <label for="angleSlider">Initial Angle (°):</label>
+      <input type="range" id="angleSlider" min="0" max="90" step="1" value="30">
+      <span id="angleValue">30</span>
+    </div>
+  </div>
+  
+  <div class="button-controls">
+    <button id="startButton">Start</button>
+    <button id="pauseButton">Pause</button>
+    <button id="resetButton">Reset</button>
+  </div>
+  
+  <div class="physics-values">
+    <div>Period (T): <span id="periodValue">0</span> seconds</div>
+    <div>Angular Velocity (ω): <span id="angularVelocityValue">0</span> rad/s</div>
+    <div>Energy: <span id="energyValue">0</span> J</div>
+  </div>
+
+  <script>
+    // Canvas setup
+    const container = document.getElementById('simulationContainer');
+    const canvas = document.createElement('canvas');
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    container.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    
+    // Simulation parameters
+    let length = 1.0; // m
+    let gravity = 9.8; // m/s²
+    let dampening = 0.005;
+    let angle = 30 * Math.PI / 180; // convert to radians
+    let angularVelocity = 0;
+    let angularAcceleration = 0;
+    
+    // Simulation state
+    let isRunning = false;
+    let lastTime = 0;
+    
+    // UI elements
+    const lengthSlider = document.getElementById('lengthSlider');
+    const lengthValue = document.getElementById('lengthValue');
+    const gravitySlider = document.getElementById('gravitySlider');
+    const gravityValue = document.getElementById('gravityValue');
+    const dampeningSlider = document.getElementById('dampeningSlider');
+    const dampeningValue = document.getElementById('dampeningValue');
+    const angleSlider = document.getElementById('angleSlider');
+    const angleValue = document.getElementById('angleValue');
+    const periodValue = document.getElementById('periodValue');
+    const angularVelocityValue = document.getElementById('angularVelocityValue');
+    const energyValue = document.getElementById('energyValue');
+    
+    // Buttons
+    const startButton = document.getElementById('startButton');
+    const pauseButton = document.getElementById('pauseButton');
+    const resetButton = document.getElementById('resetButton');
+    
+    // Display properties
+    const pivotX = canvas.width / 2;
+    const pivotY = 50;
+    const bobRadius = 20;
+    const pixelsPerMeter = 150; // Scale factor
+    
+    // Calculate bob position
+    function getBobPosition() {
+      const bobX = pivotX + Math.sin(angle) * length * pixelsPerMeter;
+      const bobY = pivotY + Math.cos(angle) * length * pixelsPerMeter;
+      return { x: bobX, y: bobY };
+    }
+    
+    // Draw pendulum
+    function draw() {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw pivot
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.arc(pivotX, pivotY, 5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw string
+      const bobPos = getBobPosition();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pivotX, pivotY);
+      ctx.lineTo(bobPos.x, bobPos.y);
+      ctx.stroke();
+      
+      // Draw bob
+      ctx.fillStyle = '#4285F4';
+      ctx.beginPath();
+      ctx.arc(bobPos.x, bobPos.y, bobRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#2965C4';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Draw angle indicator
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+      ctx.beginPath();
+      ctx.moveTo(pivotX, pivotY);
+      ctx.lineTo(pivotX, pivotY + 40);
+      ctx.stroke();
+      
+      // Draw trajectory trail
+      if (trailPoints.length > 0) {
+        ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
+        ctx.beginPath();
+        ctx.moveTo(trailPoints[0].x, trailPoints[0].y);
+        
+        for (let i = 1; i < trailPoints.length; i++) {
+          ctx.lineTo(trailPoints[i].x, trailPoints[i].y);
+        }
+        
+        ctx.stroke();
+      }
+    }
+    
+    // Update physics
+    function updatePhysics(deltaTime) {
+      // Calculate angular acceleration
+      angularAcceleration = -(gravity / length) * Math.sin(angle);
+      
+      // Apply dampening
+      angularAcceleration -= dampening * angularVelocity;
+      
+      // Update angular velocity
+      angularVelocity += angularAcceleration * deltaTime;
+      
+      // Update angle
+      angle += angularVelocity * deltaTime;
+      
+      // Update displayed values
+      updatePhysicsValues();
+    }
+    
+    // Keep track of bob's path
+    const trailPoints = [];
+    const maxTrailPoints = 100;
+    
+    function updateTrail() {
+      const bobPos = getBobPosition();
+      
+      trailPoints.push({ x: bobPos.x, y: bobPos.y });
+      
+      if (trailPoints.length > maxTrailPoints) {
+        trailPoints.shift();
+      }
+    }
+    
+    // Animation loop
+    function animate(currentTime) {
+      if (!isRunning) return;
+      
+      if (!lastTime) lastTime = currentTime;
+      const deltaTime = (currentTime - lastTime) / 1000; // convert to seconds
+      lastTime = currentTime;
+      
+      updatePhysics(deltaTime);
+      updateTrail();
+      draw();
+      
+      requestAnimationFrame(animate);
+    }
+    
+    // Calculate and display physics values
+    function updatePhysicsValues() {
+      // Calculate period T = 2π√(L/g)
+      const period = 2 * Math.PI * Math.sqrt(length / gravity);
+      periodValue.textContent = period.toFixed(2);
+      
+      // Display current angular velocity
+      angularVelocityValue.textContent = angularVelocity.toFixed(2);
+      
+      // Calculate energy (KE + PE)
+      const mass = 1; // Assuming unit mass
+      const bobPos = getBobPosition();
+      const height = bobPos.y / pixelsPerMeter;
+      const kineticEnergy = 0.5 * mass * length * length * angularVelocity * angularVelocity;
+      const potentialEnergy = mass * gravity * height;
+      const totalEnergy = kineticEnergy + potentialEnergy;
+      
+      energyValue.textContent = totalEnergy.toFixed(2);
+    }
+    
+    // Initialize
+    function init() {
+      updateValuesFromSliders();
+      draw();
+      updatePhysicsValues();
+    }
+    
+    // Reset simulation
+    function resetSimulation() {
+      angularVelocity = 0;
+      angularAcceleration = 0;
+      angle = angleSlider.value * Math.PI / 180;
+      lastTime = 0;
+      trailPoints.length = 0;
+      draw();
+      updatePhysicsValues();
+    }
+    
+    // Update simulation parameters from sliders
+    function updateValuesFromSliders() {
+      length = parseFloat(lengthSlider.value);
+      lengthValue.textContent = length.toFixed(1);
+      
+      gravity = parseFloat(gravitySlider.value);
+      gravityValue.textContent = gravity.toFixed(1);
+      
+      dampening = parseFloat(dampeningSlider.value);
+      dampeningValue.textContent = dampening.toFixed(3);
+      
+      angle = parseFloat(angleSlider.value) * Math.PI / 180;
+      angleValue.textContent = angleSlider.value;
+      
+      resetSimulation();
+    }
+    
+    // Event listeners
+    startButton.addEventListener('click', function() {
+      if (!isRunning) {
+        isRunning = true;
+        lastTime = 0;
+        requestAnimationFrame(animate);
+      }
+    });
+    
+    pauseButton.addEventListener('click', function() {
+      isRunning = false;
+    });
+    
+    resetButton.addEventListener('click', resetSimulation);
+    
+    lengthSlider.addEventListener('input', updateValuesFromSliders);
+    gravitySlider.addEventListener('input', updateValuesFromSliders);
+    dampeningSlider.addEventListener('input', updateValuesFromSliders);
+    angleSlider.addEventListener('input', updateValuesFromSliders);
+    
+    // Start simulation
+    init();
+  </script>
+</body>
+</html>
